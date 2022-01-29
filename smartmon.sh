@@ -244,9 +244,10 @@ device_list="$(smartctl --scan-open | awk '/^\/dev/{print $1 "|" $3}')"
 
 for device in ${device_list}; do
   disk="$(echo "${device}" | cut -f1 -d'|')"
+  type="$(echo "${device}" | cut -f2 -d'|')"
 
   # get smartctl -d argument (type) by logical disk serial
-  s="$(/usr/sbin/smartctl -n standby -i ${disk})"
+  s="$(/usr/sbin/smartctl -n standby -d ${type} -i ${disk})"
   vendor=$(echo "$s" | awk '/Vendor:/ { print $2 }')
   if [ "$vendor" = "ASR8405" ] ; then
 
@@ -267,8 +268,6 @@ for device in ${device_list}; do
 
     serial=$(echo "$s" | awk '/Serial number:/ { print $3 }')
     type="${ld_type_map[${serial}]}"
-  else
-    type="$(echo "${device}" | cut -f2 -d'|')"
   fi
 
   active=1
