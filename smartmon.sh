@@ -47,6 +47,7 @@ parse_smartctl_attributes_awk="$(
   cat <<'SMARTCTLAWK'
 $1 ~ /^ *[0-9]+$/ && $2 ~ /^[a-zA-Z0-9_-]+$/ {
   gsub(/-/, "_");
+  if ($1 == 231) next # ignore attr 231 (too high on XF1230)
   printf "%s_value{%s,smart_id=\"%s\"} %d\n", tolower($2), labels, $1, $4
   printf "%s_worst{%s,smart_id=\"%s\"} %d\n", tolower($2), labels, $1, $5
   printf "%s_threshold{%s,smart_id=\"%s\"} %d\n", tolower($2), labels, $1, $6
