@@ -12,6 +12,37 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+
+# ===========================================================================
+# parse arcconf output and print
+# <logical disk serial> <smartctl -d argument>
+# table
+#
+# LLLLLLL1 sat+aacraid,0,0,4
+# LLLLLLL2 sat+aacraid,0,0,5
+# LLLLLLL3 sat+aacraid,0,0,6
+# ...
+#
+# ===========================================================================
+
+parse_accconf_awk="$(
+  cat <<'ARCCONFAWK'
+  # Unique Identifier : LLLLLLLL
+  /Unique Identifier/ { l=$4 }
+
+  # Segment 0 : Present (5723166MB, SATA, HDD, Enclosure:0, Slot:14) PPPPPPPP
+  /Segment 0/ { p_l_map[$10] = l }
+
+  # Reported Channel,Device(T:L) : 2,0(0:0)
+  /Reported Channel,Device/ { chan_dev=substr($4, 0, index($4, "(") - 1) }
+
+  # Serial number : PPPPPPPP
+  /Serial number/ {
+    printf "%s sat+aacraid,0,%s\n", p_l_map[$4], chan_dev
+  }
+ARCCONFAWK
+)"
+
 parse_smartctl_attributes_awk="$(
   cat <<'SMARTCTLAWK'
 $1 ~ /^ *[0-9]+$/ && $2 ~ /^[a-zA-Z0-9_-]+$/ {
@@ -213,7 +244,33 @@ device_list="$(smartctl --scan-open | awk '/^\/dev/{print $1 "|" $3}')"
 
 for device in ${device_list}; do
   disk="$(echo "${device}" | cut -f1 -d'|')"
-  type="$(echo "${device}" | cut -f2 -d'|')"
+
+  # get smartctl -d argument (type) by logical disk serial
+  s="$(/usr/sbin/smartctl -n standby -i ${disk})"
+  vendor=$(echo "$s" | awk '/Vendor:/ { print $2 }')
+  if [ "$vendor" = "ASR8405" ] ; then
+
+    # run arcconf and load ld_type_map if it does not exist yet
+
+    # https://stackoverflow.com/questions/3601515/how-to-check-if-a-variable-is-set-in-bash
+    # When not performing substring expansion, using the forms documented below (e.g., :-),
+    # bash tests for a  parameter that is unset or null. Omitting the colon results in a test only
+    # for a parameter that is unset.
+
+    declare -A ld_type_map
+    if [ -z "${ld_type_map[*] + x}" ] ; then
+        # why IFS changed @ line 13 ???
+        while IFS=" " read l t ; do
+            ld_type_map["$l"]="$t"
+        done < <(arcconf getconfig 1 | awk "${parse_accconf_awk}")
+    fi
+
+    serial=$(echo "$s" | awk '/Serial number:/ { print $3 }')
+    type="${ld_type_map[${serial}]}"
+  else
+    type="$(echo "${device}" | cut -f2 -d'|')"
+  fi
+
   active=1
   echo "smartctl_run{disk=\"${disk}\",type=\"${type}\"}" "$(TZ=UTC date '+%s')"
   # Check if the device is in a low-power mode
@@ -238,7 +295,7 @@ for device in ${device_list}; do
   # Get the SMART attributes
   case ${type} in
   sat) smartctl -A -d "${type}" "${disk}" | parse_smartctl_attributes "${disk_labels}" || true ;;
-  sat+megaraid*) smartctl -A -d "${type}" "${disk}" | parse_smartctl_attributes "${disk_labels}" || true ;;
+  sat*) smartctl -A -d "${type}" "${disk}" | parse_smartctl_attributes "${disk_labels}" || true ;;
   scsi) smartctl -A -d "${type}" "${disk}" | parse_smartctl_scsi_attributes "${disk_labels}" || true ;;
   megaraid*) smartctl -A -d "${type}" "${disk}" | parse_smartctl_scsi_attributes "${disk_labels}" || true ;;
   nvme*) /usr/sbin/smartctl -A -d "${type}" "${disk}" | parse_smartctl_scsi_attributes "${disk_labels}" || true ;;
