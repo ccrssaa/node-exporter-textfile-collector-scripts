@@ -134,7 +134,17 @@ extract_labels_from_smartctl_info() {
   local model_family='<None>' device_model='<None>' serial_number='<None>' fw_version='<None>' vendor='<None>' product='<None>' revision='<None>' lun_id='<None>'
   while read -r line; do
     info_type="$(echo "${line}" | cut -f1 -d: | tr ' ' '_')"
-    info_value="$(echo "${line}" | cut -f2- -d: | sed 's/^ \+//g' | sed 's/"/\\"/')"
+
+    # === START OF INFORMATION SECTION ===
+    # Model Family:     Toshiba 3.5" MG04ACA... Enterprise HDD
+    # Device Model:     TOSHIBA MG04ACA600EY
+    #
+    # node_exporter[20261]: level=error ts=2022-01-29T19:19:40.747Z caller=textfile.go:209
+    # collector=textfile msg="failed to collect textfile data" file=smartmon.prom
+    # err="failed to parse textfile data from ...:
+    # text format parsing error in line 12: unexpected end of label value \"Toshiba 3.5\""
+
+    info_value="$(echo "${line}" | cut -f2- -d: | sed -e 's/^ \+//g' -e 's/"/\\"/' -e 's/[^ a-zA-Z]//g')"
     case "${info_type}" in
     Model_Family) model_family="${info_value}" ;;
     Device_Model) device_model="${info_value}" ;;
