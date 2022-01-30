@@ -144,7 +144,8 @@ extract_labels_from_smartctl_info() {
     # err="failed to parse textfile data from ...:
     # text format parsing error in line 12: unexpected end of label value \"Toshiba 3.5\""
 
-    info_value="$(echo "${line}" | cut -f2- -d: | sed -e 's/^ \+//g' -e 's/"/\\"/' -e 's/[^ a-zA-Z]//g')"
+    info_value="$(echo "${line}" | cut -f2- -d: | \
+      sed -e 's/^ \+//g' -e 's/"/\\"/' -e 's/[^ 0-9a-zA-Z]//g')"
     case "${info_type}" in
     Model_Family) model_family="${info_value}" ;;
     Device_Model) device_model="${info_value}" ;;
