@@ -65,7 +65,7 @@ def handle_common_controller(response):
     # Split up string to not trigger CodeSpell issues
     if 'ROC temperature(Degree Celc' + 'ius)' in response['HwCfg'].keys():
         response['HwCfg']['ROC temperature(Degree Celsius)'] = response['HwCfg'].pop('ROC temperature(Degree Celc' + 'ius)')
-    add_metric('temperature', baselabel, int(response['HwCfg']['ROC temperature(Degree Celsius)']))
+        add_metric('temperature', baselabel, int(response['HwCfg']['ROC temperature(Degree Celsius)']))
 
 def handle_sas_controller(response):
     (controller_index, baselabel) = get_basic_controller_info(response)
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     PARSER = argparse.ArgumentParser(
         description=DESCRIPTION, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     PARSER.add_argument(
-        '--storcli_path', default='/opt/MegaRAID/storcli/storcli64', help='path to StorCLi binary')
+        '--storcli_path', default='/opt/megaraid/storcli', help='path to StorCLi binary')
     PARSER.add_argument('--version', action='version', version='%(prog)s {0}'.format(VERSION))
     ARGS = PARSER.parse_args()
 
