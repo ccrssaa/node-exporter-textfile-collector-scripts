@@ -59,13 +59,24 @@ def main(args):
 
     print_all_metrics(metric_list)
 
+
 def handle_common_controller(response):
     (controller_index, baselabel) = get_basic_controller_info(response)
 
+    controller_info_label = baselabel + ',model="{0}",serial="{1}",fwversion="{2}"'.format(
+        str(response['Basics']['Model']).strip(),
+        str(response['Basics']['Serial Number']).strip(),
+        str(response['Version']['Firmware Version']).strip(),
+    )
+    add_metric('controller_info', controller_info_label, 1)
+
     # Split up string to not trigger CodeSpell issues
     if 'ROC temperature(Degree Celc' + 'ius)' in response['HwCfg'].keys():
-        response['HwCfg']['ROC temperature(Degree Celsius)'] = response['HwCfg'].pop('ROC temperature(Degree Celc' + 'ius)')
-        add_metric('temperature', baselabel, int(response['HwCfg']['ROC temperature(Degree Celsius)']))
+        response['HwCfg']['ROC temperature(Degree Celsius)'] = response['HwCfg'].pop(
+            'ROC temperature(Degree Celc' + 'ius)'
+        )
+    add_metric('temperature', baselabel, int(response['HwCfg']['ROC temperature(Degree Celsius)']))
+
 
 def handle_sas_controller(response):
     (controller_index, baselabel) = get_basic_controller_info(response)
@@ -98,8 +109,11 @@ def handle_megaraid_controller(response):
     add_metric('ports', baselabel, response['HwCfg']['Backend Port Count'])
     add_metric('scheduled_patrol_read', baselabel,
                int('hrs' in response['Scheduled Tasks']['Patrol Read Reoccurrence']))
-    for cvidx, cvinfo in enumerate(response['Cachevault_Info']):
-        add_metric('cv_temperature', baselabel + ',cvidx="' + str(cvidx) + '"', int(cvinfo['Temp'].replace('C','')))
+    for cvidx, cvinfo in enumerate(response.get('Cachevault_Info', [])):
+        add_metric('cv_temperature',
+                   baselabel + ',cvidx="' + str(cvidx) + '"',
+                   int(cvinfo['Temp'].replace('C', ''))
+                   )
 
     time_difference_seconds = -1
     system_time = datetime.strptime(response['Basics'].get('Current System Date/time'),
@@ -121,8 +135,9 @@ def handle_megaraid_controller(response):
             if vd_position:
                 drive_group = vd_position.split('/')[0]
                 volume_group = vd_position.split('/')[1]
-            vd_baselabel = 'controller="{0}",DG="{1}",VG="{2}"'.format(controller_index, drive_group,
-                                                                    volume_group)
+            vd_baselabel = 'controller="{0}",DG="{1}",VG="{2}"'.format(controller_index,
+                                                                       drive_group,
+                                                                       volume_group)
             vd_info_label = vd_baselabel + ',name="{0}",cache="{1}",type="{2}",state="{3}"'.format(
                 str(virtual_drive.get('Name')).strip(),
                 str(virtual_drive.get('Cache')).strip(),
@@ -141,14 +156,6 @@ def handle_megaraid_controller(response):
 def get_basic_controller_info(response):
     controller_index = response['Basics']['Controller']
     baselabel = 'controller="{0}"'.format(controller_index)
-
-    controller_info_label = baselabel + ',model="{0}",serial="{1}",fwversion="{2}"'.format(
-        str(response['Basics']['Model']).strip(),
-        str(response['Basics']['Serial Number']).strip(),
-        str(response['Version']['Firmware Version']).strip(),
-    )
-    add_metric('controller_info', controller_info_label, 1)
-
     return (controller_index, baselabel)
 
 
@@ -157,7 +164,7 @@ def create_metrics_of_physical_drive(physical_drive, detailed_info_array, contro
     slot = physical_drive.get('EID:Slt').split(':')[1]
 
     pd_baselabel = 'controller="{0}",enclosure="{1}",slot="{2}"'.format(controller_index, enclosure,
-                                                                     slot)
+                                                                        slot)
     pd_info_label = pd_baselabel + \
         ',disk_id="{0}",interface="{1}",media="{2}",model="{3}",DG="{4}",state="{5}"'.format(
             str(physical_drive.get('DID')).strip(),
@@ -189,6 +196,8 @@ def create_metrics_of_physical_drive(physical_drive, detailed_info_array, contro
                    int(settings['Commissioned Spare'] == 'Yes'))
         add_metric('pd_emergency_spare', pd_baselabel, int(settings['Emergency Spare'] == 'Yes'))
         pd_info_label += ',firmware="{0}"'.format(attributes['Firmware Revision'].strip())
+        if 'SN' in attributes:
+            pd_info_label += ',serial="{0}"'.format(attributes['SN'].strip())
     except KeyError:
         pass
     add_metric('pd_info', pd_info_label, 1)
@@ -211,8 +220,10 @@ def print_all_metrics(metrics):
         print('# TYPE {0}{1} gauge'.format(metric_prefix, metric))
         for measurement in measurements:
             if measurement['value'] != 'Unknown':
-                print('{0}{1}{2} {3}'.format(metric_prefix, metric, '{' + measurement['labels'] + '}',
-                                         measurement['value']))
+                print('{0}{1}{2} {3}'.format(metric_prefix,
+                                             metric,
+                                             '{' + measurement['labels'] + '}',
+                                             measurement['value']))
 
 
 def get_storcli_json(storcli_args):
@@ -235,7 +246,7 @@ if __name__ == "__main__":
     PARSER = argparse.ArgumentParser(
         description=DESCRIPTION, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     PARSER.add_argument(
-        '--storcli_path', default='/opt/megaraid/storcli', help='path to StorCLi binary')
+        '--storcli_path', default='/opt/MegaRAID/storcli/storcli64', help='path to StorCLi binary')
     PARSER.add_argument('--version', action='version', version='%(prog)s {0}'.format(VERSION))
     ARGS = PARSER.parse_args()
 
