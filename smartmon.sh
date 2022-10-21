@@ -202,7 +202,7 @@ parse_smartctl_info() {
   done
   echo "device_smart_available{${labels}} ${smart_available}"
   echo "device_smart_enabled{${labels}} ${smart_enabled}"
-  echo "device_smart_healthy{${labels}} ${smart_healthy}"
+  # echo "device_smart_healthy{${labels}} ${smart_healthy}"
   [[ "${smart_healthy}" != "" ]] && echo "device_smart_healthy{${labels}} ${smart_healthy}"
   echo "device_sector_size_logical{${labels}} ${sector_size_log}"
   echo "device_sector_size_physical{${labels}} ${sector_size_phy}"
